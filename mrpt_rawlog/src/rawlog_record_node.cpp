@@ -120,154 +120,17 @@ void RawlogRecordNode::convert(
 
 void RawlogRecordNode::callbackOdometry(const nav_msgs::Odometry& _msg)
 {
-	// ROS_INFO("callbackOdometry");
-	if (!last_odometry_)
-	{
-		last_odometry_ = CObservationOdometry::Create();
-	}
-	convert(_msg, *last_odometry_);
-	addObservation(_msg.header.stamp);
+
 }
 
 void RawlogRecordNode::callbackLaser(const sensor_msgs::LaserScan& _msg)
 {
-	// ROS_INFO("callbackLaser");
-	if (!last_range_scan_)
-	{
-		last_range_scan_ = CObservation2DRangeScan::Create();
-	}
-	mrpt::poses::CPose3D sensor_pose_on_robot;
 
-	if (getStaticTF(_msg.header.frame_id, sensor_pose_on_robot))
-	{
-		mrpt_bridge::convert(_msg, sensor_pose_on_robot, *last_range_scan_);
-
-		addObservation(_msg.header.stamp);
-	}
 }
 
 void RawlogRecordNode::callbackMarker(const marker_msgs::MarkerDetection& _msg)
 {
-	// ROS_INFO("callbackMarker");
-	if (!last_bearing_range_)
-	{
-		last_bearing_range_ = CObservationBearingRange::Create();
-	}
-	if (!last_beacon_range_)
-	{
-		last_beacon_range_ = CObservationBeaconRanges::Create();
-	}
-	mrpt::poses::CPose3D sensor_pose_on_robot;
 
-	if (getStaticTF(_msg.header.frame_id, sensor_pose_on_robot))
-	{
-		mrpt_bridge::convert(_msg, sensor_pose_on_robot, *last_bearing_range_);
-		last_bearing_range_->sensor_std_range =
-		    base_param_.bearing_range_std_range;
-		last_bearing_range_->sensor_std_yaw = base_param_.bearing_range_std_yaw;
-		last_bearing_range_->sensor_std_pitch =
-		    base_param_.bearing_range_std_pitch;
-
-		mrpt_bridge::convert(_msg, sensor_pose_on_robot, *last_beacon_range_);
-		last_beacon_range_->stdError = base_param_.bearing_range_std_range;
-		addObservation(_msg.header.stamp);
-	}
-}
-
-void RawlogRecordNode::addObservation(const ros::Time& time)
-{
-	sync_attempts_sensor_frame_++;
-	if (sync_attempts_sensor_frame_ > 10)
-		ROS_INFO("Problem to syn data for sensor frame!");
-
-	if (!last_odometry_) return;
-	auto odometry = CObservationOdometry::Create();
-	*odometry = *last_odometry_;
-	pRawLog.addObservationMemoryReference(odometry);
-
-	CObservation2DRangeScan::Ptr range_scan;
-	CObservationBearingRange::Ptr bearing_range;
-	CObservationBeaconRanges::Ptr beacon_range;
-
-	if (base_param_.record_range_scan)
-	{
-		if (!last_range_scan_) return;
-		if (fabs(mrpt::system::timeDifference(
-		        last_odometry_->timestamp, last_range_scan_->timestamp)) >
-		    param_.sensor_frame_sync_threshold)
-		{
-			return;
-		}
-		range_scan = CObservation2DRangeScan::Create();
-		*range_scan = *last_range_scan_;
-		pRawLog.addObservationMemoryReference(range_scan);
-	}
-
-	if (base_param_.record_bearing_range)
-	{
-		if (!last_bearing_range_) return;
-		if (fabs(mrpt::system::timeDifference(
-		        last_odometry_->timestamp, last_bearing_range_->timestamp)) >
-		    param_.sensor_frame_sync_threshold)
-		{
-			return;
-		}
-		bearing_range = CObservationBearingRange::Create();
-		*bearing_range = *last_bearing_range_;
-		pRawLog.addObservationMemoryReference(bearing_range);
-	}
-	if (base_param_.record_beacon_range)
-	{
-		if (!last_beacon_range_) return;
-		if (fabs(mrpt::system::timeDifference(
-		        last_odometry_->timestamp, last_beacon_range_->timestamp)) >
-		    param_.sensor_frame_sync_threshold)
-		{
-			return;
-		}
-		beacon_range = CObservationBeaconRanges::Create();
-		*beacon_range = *last_beacon_range_;
-		pRawLog.addObservationMemoryReference(beacon_range);
-	}
-
-	static std::shared_ptr<mrpt::poses::CPose2D> lastOdomPose;
-	if (!lastOdomPose)
-	{
-		lastOdomPose = std::make_shared<mrpt::poses::CPose2D>();
-		*lastOdomPose = odometry->odometry;
-	}
-
-	mrpt::poses::CPose2D incOdoPose = odometry->odometry - *lastOdomPose;
-
-	CActionRobotMovement2D odom_move;
-	odom_move.timestamp = odometry->timestamp;
-	odom_move.computeFromOdometry(incOdoPose, base_param_.motionModelOptions);
-	auto action = CActionCollection::Create();
-	action->insert(odom_move);
-	pRawLogASF.addActionsMemoryReference(action);
-
-	auto sf = CSensoryFrame::Create();
-	if (base_param_.record_range_scan)
-	{
-		CObservation::Ptr obs_range_scan = CObservation::Ptr(range_scan);
-		sf->insert(obs_range_scan);
-	}
-
-	if (base_param_.record_bearing_range)
-	{
-		CObservation::Ptr obs_bearing_range = CObservation::Ptr(bearing_range);
-		sf->insert(obs_bearing_range);
-	}
-	if (base_param_.record_beacon_range)
-	{
-		CObservation::Ptr obs_bearing_range = CObservation::Ptr(beacon_range);
-		sf->insert(obs_bearing_range);
-	}
-	pRawLogASF.addObservationsMemoryReference(sf);
-
-	*lastOdomPose = odometry->odometry;
-
-	sync_attempts_sensor_frame_ = 0;
 }
 
 bool RawlogRecordNode::getStaticTF(

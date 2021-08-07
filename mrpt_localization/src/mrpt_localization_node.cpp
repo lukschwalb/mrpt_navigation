@@ -235,7 +235,6 @@ void PFLocalizationNode::callbackLaser(const sensor_msgs::LaserScan& _msg)
 		CObservation::Ptr obs = CObservation::Ptr(laser);
 		sf->insert(obs);
 		observation(sf, odometry);
-		if (param()->gui_mrpt) show3DDebug(sf);
 	}
 }
 
@@ -273,7 +272,6 @@ void PFLocalizationNode::callbackBeacon(
 		CObservation::Ptr obs = CObservation::Ptr(beacon);
 		sf->insert(obs);
 		observation(sf, odometry);
-		if (param()->gui_mrpt) show3DDebug(sf);
 	}
 }
 
@@ -348,7 +346,6 @@ void PFLocalizationNode::callbackRobotPose(
 	CObservation::Ptr obs = CObservation::Ptr(feature);
 	sf->insert(obs);
 	observation(sf, odometry);
-	if (param()->gui_mrpt) show3DDebug(sf);
 }
 
 void PFLocalizationNode::odometryForCallback(
